@@ -5,7 +5,7 @@ import os
 import math
 import time
 from data_generation import make_lego_datasets, generate_data, CharTokenizer
-from models import MLP, CNN_NLP, MYMLP
+from models import MLP, CNN_NLP, MYMLP, TransformerEncoder
 import argparse
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
@@ -129,6 +129,16 @@ def main(args):
                         dropout=args.dropout)
     elif args.model == "myfcn":
         model = MYMLP(d_input = args.n_var * 5 * (args.voca_size + 6), d_hide=args.d_hide , d_output=args.n_var * 5, n_layers=args.n_layers, dropout=args.dropout)
+    elif args.model == "transformer":
+        model = TransformerEncoder(
+                        d_model=args.voca_size + 6,
+                        dim_feedforward=256,
+                        scaleup_dim=(args.voca_size + 6) * 4,
+                        nhead=4,
+                        num_layers=args.n_layers,
+                        embedding_type="scaleup",
+                        pos_encoder_type="learned",
+                        dropout=args.dropout)
     else:
         raise NotImplementedError
     
