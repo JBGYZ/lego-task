@@ -100,3 +100,91 @@ class CNN_NLP(nn.Module):
         logits = self.fc(self.dropout(x_fc))
 
         return logits
+    
+class MyLinear(nn.Module):
+
+    def __init__(
+        self, input_dim, out_dim, bias=False
+    ):
+        """
+        Args:
+            input_dim: The input dimension.
+            out_dim: The output dimension.
+            bias: True for adding bias.
+        """
+        super().__init__()
+        self.weight = nn.Parameter(
+            torch.randn( out_dim, input_dim)
+        )
+        if bias:
+            self.bias = nn.Parameter(torch.randn(out_dim))
+        else:
+            self.register_parameter("bias", None)
+
+    def forward(self, x):
+        """
+        Args:
+            x: input, tensor of size (batch_size, *, input_dim).
+        
+        Returns:
+            An affine transformation of x, tensor of size (batch_size, *, out_dim)
+        """
+        x = F.linear( x, self.weight, self.bias) / x.size(-1)**.5 # standard scaling
+        return x
+
+class MYMLP(nn.Module):
+    def __init__(
+        self, d_input, d_hide, d_output, n_layers, bias=True, norm='mf',dropout=0.1
+    ):
+        """
+        MultiLayer Perceptron
+
+        Args:
+            input_dim: The input dimension.
+            nn_dim: The number of hidden neurons per layer.
+            out_dim: The output dimension.
+            num_layers: The number of layers.
+            bias: True for adding bias.
+            norm: Scaling factor for the readout layer.
+        """
+        super().__init__()
+        input_dim = d_input
+        nn_dim =d_hide
+        out_dim = d_output
+        num_layers = n_layers
+        self.hidden = nn.Sequential(
+            nn.Sequential(
+                MyLinear(
+                    input_dim, nn_dim, bias
+                ),
+                nn.ReLU(),
+            ),
+            *[nn.Sequential(
+                    MyLinear(
+                        nn_dim, nn_dim, bias
+                    ),
+                    nn.ReLU(),
+                )
+                for _ in range(1, num_layers)
+            ],
+        )
+        self.readout = nn.Parameter(
+            torch.randn(nn_dim, out_dim)
+        )
+        if norm=='std':
+            self.norm = nn_dim**.5 # standard NTK scaling
+        elif norm=='mf':
+            self.norm = nn_dim # mean-field scaling
+
+    def forward(self, x):
+        """
+        Args:
+            x: input, tensor of size (batch_size, *, input_dim).
+        
+        Returns:
+            Output of a multilayer perceptron, tensor of size (batch_size, *, out_dim)
+        """
+        x = x.view(x.size(0), -1) # flatten
+        x = self.hidden(x)
+        x = x @ self.readout / self.norm
+        return x
