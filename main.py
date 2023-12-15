@@ -149,8 +149,8 @@ def main(args):
     else:
         raise NotImplementedError
 
-    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.T_max)
-    writer = SummaryWriter(log_dir=f'{args.dir}/voca_size_{args.voca_size}_n_var_{args.n_var}_n_train_var_{args.n_train_var}_n_train_{args.n_train}_n_test_{args.n_test}_batch_size_{args.batch_size}_d_hide_{args.d_hide}_n_layers_{args.n_layers}_dropout_{args.dropout}_lr_{args.lr}_T_max_{args.T_max}_epochs_{args.epochs}')
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.T_max)
+    writer = SummaryWriter(log_dir=f'{args.dir}/voca_size_{args.voca_size}_n_var_{args.n_var}_n_train_var_{args.n_train_var}_n_train_{args.n_train}_n_test_{args.n_test}_batch_size_{args.batch_size}_d_hide_{args.d_hide}_n_layers_{args.n_layers}_dropout_{args.dropout}_lr_{args.lr}_T_max_{args.T_max}_epochs_{args.epochs}_optimizer_{args.optimizer}_model_{args.model}')
 
     for epoch in tqdm(range(args.epochs)):
         args.epoch = epoch
@@ -160,7 +160,7 @@ def main(args):
         train(args, model, trainloader, optimizer, criterion, print_acc=True, writer=writer)
         if epoch % 20 == 0:
             test(args, model, testloader, criterion, writer=writer)
-        # scheduler.step()
+        scheduler.step()
 
         print('Time elapsed: %f s' %(time.time() - start))
 
