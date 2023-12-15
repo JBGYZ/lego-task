@@ -14,7 +14,7 @@ class MLP(nn.Module):
     def __init__(self, d_input, d_hide, d_output=30 ,n_layers=2, dropout=0.1):
         super(MLP, self).__init__()
         self.first_layer = nn.Linear(d_input, d_hide)
-        self.layers = nn.ModuleList([nn.Linear(d_hide, d_hide) for _ in range(n_layers)])
+        self.layers = nn.ModuleList([nn.Sequential(nn.BatchNorm1d(d_hide), nn.Linear(d_hide, d_hide)) for _ in range(n_layers)])        
         self.last_layer = nn.Linear(d_hide, d_output)
         self.dropout = nn.Dropout(dropout)
         
