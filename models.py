@@ -32,12 +32,11 @@ class MLP(nn.Module):
 class CNN_NLP(nn.Module):
     """An 1D Convulational Neural Network for Sentence Classification."""
     def __init__(self,
-                 vocab_size=None,
                  embed_dim=300,
-                 filter_sizes=[3, 4, 5],
+                 filter_sizes=[5, 5, 5],
                  num_filters=[100, 100, 100],
                  num_classes=2,
-                 dropout=0.5):
+                 dropout=0.1):
         """
         The constructor for CNN_NLP class.
 
@@ -54,11 +53,13 @@ class CNN_NLP(nn.Module):
         """
 
         super(CNN_NLP, self).__init__()
+        self.embed_dim = embed_dim
         # Conv Network
         self.conv1d_list = nn.ModuleList([
             nn.Conv1d(in_channels=self.embed_dim,
                       out_channels=num_filters[i],
-                      kernel_size=filter_sizes[i])
+                      kernel_size=filter_sizes[i],
+                      stride = 5)
             for i in range(len(filter_sizes))
         ])
         # Fully-connected layer and Dropout
@@ -77,12 +78,9 @@ class CNN_NLP(nn.Module):
                 n_classes)
         """
 
-        # Get embeddings from `input_ids`. Output shape: (b, max_len, embed_dim)
-        x_embed = self.embedding(input_ids).float()
-
         # Permute `x_embed` to match input shape requirement of `nn.Conv1d`.
         # Output shape: (b, embed_dim, max_len)
-        x_reshaped = x_embed.permute(0, 2, 1)
+        x_reshaped = input_ids.permute(0, 2, 1).float()
 
         # Apply CNN and ReLU. Output shape: (b, num_filters[i], L_out)
         x_conv_list = [F.relu(conv1d(x_reshaped)) for conv1d in self.conv1d_list]

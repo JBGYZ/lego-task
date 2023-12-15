@@ -122,7 +122,7 @@ def main(args):
     elif args.model == "cnn":
         model = CNN_NLP(
                         embed_dim=args.voca_size + 6,
-                        filter_sizes=[3, 4, 5],
+                        filter_sizes=[5, 5, 5],
                         num_filters=[100, 100, 100],
                         num_classes=args.n_var * 5,
                         dropout=args.dropout)
