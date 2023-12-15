@@ -33,9 +33,10 @@ class CNN_NLP(nn.Module):
     """An 1D Convulational Neural Network for Sentence Classification."""
     def __init__(self,
                  embed_dim=300,
-                 filter_sizes=[5, 5, 5],
-                 num_filters=[100, 100, 100],
+                 filter_sizes=[5],
+                 num_filters=[100],
                  num_classes=2,
+                 num_layers=3,
                  dropout=0.1):
         """
         The constructor for CNN_NLP class.
@@ -54,6 +55,9 @@ class CNN_NLP(nn.Module):
 
         super(CNN_NLP, self).__init__()
         self.embed_dim = embed_dim
+        num_filters *= num_layers
+        filter_sizes *= num_layers
+
         # Conv Network
         self.conv1d_list = nn.ModuleList([
             nn.Conv1d(in_channels=self.embed_dim,

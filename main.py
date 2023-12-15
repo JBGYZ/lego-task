@@ -125,6 +125,7 @@ def main(args):
                         filter_sizes=[5, 5, 5],
                         num_filters=[100, 100, 100],
                         num_classes=args.n_var * 5,
+                        num_layers=args.n_layers,
                         dropout=args.dropout)
     elif args.model == "myfcn":
         model = MYMLP(d_input = args.n_var * 5 * (args.voca_size + 6), d_hide=args.d_hide , d_output=args.n_var * 5, n_layers=args.n_layers, dropout=args.dropout)
