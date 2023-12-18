@@ -132,8 +132,8 @@ def main(args):
     elif args.model == "transformer":
         model = TransformerEncoder(
                         d_model=args.voca_size + 6,
-                        dim_feedforward=256,
-                        scaleup_dim=(args.voca_size + 6) * 4,
+                        dim_feedforward=args.dim_feedforward,
+                        scaleup_dim=args.d_hide,
                         nhead=4,
                         num_layers=args.n_layers,
                         embedding_type="scaleup",
@@ -161,7 +161,7 @@ def main(args):
         raise NotImplementedError
 
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.T_max)
-    writer = SummaryWriter(log_dir=f'{args.dir}/voca_size_{args.voca_size}_n_var_{args.n_var}_n_train_var_{args.n_train_var}_n_train_{args.n_train}_n_test_{args.n_test}_batch_size_{args.batch_size}_d_hide_{args.d_hide}_n_layers_{args.n_layers}_dropout_{args.dropout}_lr_{args.lr}_T_max_{args.T_max}_epochs_{args.epochs}_optimizer_{args.optimizer}_model_{args.model}')
+    writer = SummaryWriter(log_dir=f'{args.dir}/voca_size_{args.voca_size}_n_var_{args.n_var}_n_train_var_{args.n_train_var}_n_train_{args.n_train}_n_test_{args.n_test}_batch_size_{args.batch_size}_d_hide_{args.d_hide}_n_layers_{args.n_layers}_dropout_{args.dropout}_lr_{args.lr}_T_max_{args.T_max}_epochs_{args.epochs}_optimizer_{args.optimizer}_model_{args.model}_dim_feedforward_{args.dim_feedforward}')
 
     for epoch in tqdm(range(args.epochs)):
         args.epoch = epoch
@@ -193,6 +193,9 @@ if __name__ == "__main__":
     parser.add_argument("--optimizer", type=str, default="adam")
     parser.add_argument("--model", type=str, default="fcn")
     parser.add_argument("--dir", type=str, default="fcnruns")
+
+    ## Transformer params
+    parser.add_argument("--dim_feedforward", type=int, default=256)
 
     args = parser.parse_args()
     assert args.n_var <= args.voca_size , "var nb of a seq should be smaller than voca_size"
