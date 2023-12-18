@@ -33,8 +33,7 @@ class CNN_NLP(nn.Module):
     """An 1D Convulational Neural Network for Sentence Classification."""
     def __init__(self,
                  embed_dim=300,
-                 filter_sizes=[5],
-                 num_filters=[100],
+                 num_filters=100,
                  num_classes=2,
                  num_layers=3,
                  dropout=0.1):
@@ -55,19 +54,22 @@ class CNN_NLP(nn.Module):
 
         super(CNN_NLP, self).__init__()
         self.embed_dim = embed_dim
-        num_filters *= num_layers
-        filter_sizes *= num_layers
-
-        # Conv Network
-        self.conv1d_list = nn.ModuleList([
-            nn.Conv1d(in_channels=self.embed_dim,
-                      out_channels=num_filters[i],
-                      kernel_size=filter_sizes[i],
+        # First layer 
+        self.first_layer = nn.Conv1d(in_channels=self.embed_dim,
+                      out_channels=num_filters,
+                      kernel_size=5,
                       stride = 5)
-            for i in range(len(filter_sizes))
+        # Conv Network
+        self.conv1d_list = nn.ModuleList([nn.Sequential( 
+            nn.Conv1d(in_channels=num_filters,
+                      out_channels=num_filters,
+                      kernel_size=3,
+                      padding=1),
+            nn.ReLU())
+            for _ in range(num_layers)
         ])
         # Fully-connected layer and Dropout
-        self.fc = nn.Linear(np.sum(num_filters), num_classes)
+        self.fc = nn.Linear(num_filters*num_classes//5, num_classes)
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, input_ids):
@@ -85,21 +87,23 @@ class CNN_NLP(nn.Module):
         # Permute `x_embed` to match input shape requirement of `nn.Conv1d`.
         # Output shape: (b, embed_dim, max_len)
         x_reshaped = input_ids.permute(0, 2, 1).float()
-
+        x_reshaped = self.first_layer(x_reshaped)
         # Apply CNN and ReLU. Output shape: (b, num_filters[i], L_out)
-        x_conv_list = [F.relu(conv1d(x_reshaped)) for conv1d in self.conv1d_list]
+        for i in range(len(self.conv1d_list)):
+            x_reshaped = self.conv1d_list[i](x_reshaped)
 
-        # Max pooling. Output shape: (b, num_filters[i], 1)
-        x_pool_list = [F.max_pool1d(x_conv, kernel_size=x_conv.shape[2])
-            for x_conv in x_conv_list]
+        # # Max pooling. Output shape: (b, num_filters[i], 1)
+        # x_pool_list = [F.max_pool1d(x_conv, kernel_size=x_conv.shape[2])
+        #     for x_conv in x_conv_list]
         
-        # Concatenate x_pool_list to feed the fully connected layer.
-        # Output shape: (b, sum(num_filters))
-        x_fc = torch.cat([x_pool.squeeze(dim=2) for x_pool in x_pool_list],
-                         dim=1)
+        # # Concatenate x_pool_list to feed the fully connected layer.
+        # # Output shape: (b, sum(num_filters))
+        # x_fc = torch.cat([x_pool.squeeze(dim=2) for x_pool in x_pool_list],
+        #                  dim=1)
         
         # Compute logits. Output shape: (b, n_classes)
-        logits = self.fc(self.dropout(x_fc))
+        x_reshaped = x_reshaped.view(x_reshaped.size(0), -1)
+        logits = self.fc(self.dropout(x_reshaped))
 
         return logits
     
