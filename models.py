@@ -90,8 +90,10 @@ class CNN_NLP(nn.Module):
         x_reshaped = self.first_layer(x_reshaped)
         # Apply CNN and ReLU. Output shape: (b, num_filters[i], L_out)
         for i in range(len(self.conv1d_list)):
+            x_identity = x_reshaped.clone()
             x_reshaped = self.conv1d_list[i](x_reshaped)
-
+            x_reshaped = x_reshaped + x_identity
+            
         # # Max pooling. Output shape: (b, num_filters[i], 1)
         # x_pool_list = [F.max_pool1d(x_conv, kernel_size=x_conv.shape[2])
         #     for x_conv in x_conv_list]
