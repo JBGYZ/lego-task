@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
 import numpy as np
-import os
-import math
 import time
 from data_generation import make_lego_datasets, generate_data, CharTokenizer
-from models import MLP, CNN_NLP, MYMLP, TransformerEncoder
+from models import MLP, CNN, TransformerEncoder
 import argparse
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
@@ -46,13 +44,15 @@ def train(args, model, trainloader, optimizer, criterion, print_acc=False, write
         loss = 0
         for idx in train_var_pred:
 
-            loss += criterion(ordered_pred[:, idx], y[:, idx].float()) / len(train_var_pred)
-            total_loss += loss.item() / len(train_var_pred)
+            # loss += criterion(ordered_pred[:, idx], y[:, idx].float()) / len(train_var_pred)
+            loss += criterion(ordered_pred[:, idx], y[:, idx].float())
+
+            # total_loss += loss.item() / len(train_var_pred)
     
             correct[idx] += ((ordered_pred[:, idx]>0).long() == y[:, idx]).float().mean().item()
-            
+           
         total += 1
-    
+        total_loss += loss.item() / len(train_var_pred)
         loss.backward()
         optimizer.step()
     
@@ -63,7 +63,7 @@ def train(args, model, trainloader, optimizer, criterion, print_acc=False, write
             for idx in train_var_pred:
                 print("     %s: %f" % (idx, train_acc[idx]))
     if writer is not None:
-        writer.add_scalar("Loss/train", total_loss / (total + 1), args.epoch)
+        writer.add_scalar("Loss/train", total_loss / (total), args.epoch)
         for idx in train_var_pred:
             writer.add_scalar("Train/nb%s"%(idx), train_acc[idx], args.epoch)
 
@@ -99,9 +99,44 @@ def test(args, model, testloader, criterion, writer=None):
         for idx in test_var_pred:
             print("     %s: %f" % (idx, test_acc[idx]))
     if writer is not None:
-        writer.add_scalar("Loss/test", total_loss / (total + 1), args.epoch)
+        writer.add_scalar("Loss/test", total_loss / (total), args.epoch)
         for idx in test_var_pred:
             writer.add_scalar("Test/nb%s"%(idx), test_acc[idx], args.epoch)
+   
+
+    return test_acc
+
+def test1(args, model, testloader, criterion, writer=None):
+    test_acc = []
+    total_loss = 0
+    correct = [0]*args.n_var
+    test_var_pred = [i for i in range(args.n_var)]
+    total = 0
+    model.eval()
+    with torch.no_grad():
+        for batch, labels, order in testloader:
+            batch, labels, order = batch.to(args.device), labels.to(args.device), order.to(args.device)
+            x = batch
+            y = labels
+            inv_order = order.permute(0, 2, 1)
+            pred = model(x.float()).unsqueeze(-1)
+
+            ordered_pred = torch.bmm(inv_order, pred[:, 0:-1:5, :]).squeeze()
+            for idx in test_var_pred:
+                loss = criterion(ordered_pred[:, idx], y[:, idx].float())
+                total_loss += loss.item() / len(test_var_pred)
+                correct[idx] += ((ordered_pred[:, idx]>0).long() == y[:, idx]).float().mean().item()
+                          
+            total += 1
+        
+        test_acc = [corr/total for corr in correct]
+        print("   Test  Loss: %f" % (total_loss/total))
+        for idx in test_var_pred:
+            print("     %s: %f" % (idx, test_acc[idx]))
+    if writer is not None:
+        writer.add_scalar("Loss/realtrain", total_loss / (total), args.epoch)
+        for idx in test_var_pred:
+            writer.add_scalar("Realtrain/nb%s"%(idx), test_acc[idx], args.epoch)
    
 
     return test_acc
@@ -115,19 +150,17 @@ def main(args):
     batch_size = args.batch_size
 
     tokenizer = CharTokenizer(args.voca_size)
-    trainloader, testloader = make_lego_datasets(n_var, n_train, n_test, batch_size, args.voca_size)
+    trainloader, testloader = make_lego_datasets(n_var, n_train, n_test, batch_size, args.voca_size, args.seed)
 
     if args.model == "fcn":
         model = MLP(d_input = args.n_var * 5 * (args.voca_size + 6), d_hide=args.d_hide , d_output=args.n_var * 5, n_layers=args.n_layers, dropout=args.dropout)
     elif args.model == "cnn":
-        model = CNN_NLP(
+        model = CNN(
                         embed_dim=args.voca_size + 6,
                         num_filters= args.d_hide,
                         num_classes=args.n_var * 5,
                         num_layers=args.n_layers,
                         dropout=args.dropout)
-    elif args.model == "myfcn":
-        model = MYMLP(d_input = args.n_var * 5 * (args.voca_size + 6), d_hide=args.d_hide , d_output=args.n_var * 5, n_layers=args.n_layers, dropout=args.dropout)
     elif args.model == "transformer":
         model = TransformerEncoder(
                         d_model=args.voca_size + 6,
@@ -159,18 +192,20 @@ def main(args):
     else:
         raise NotImplementedError
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.T_max)
-    writer = SummaryWriter(log_dir=f'{args.dir}/model_{args.model}_voca_size_{args.voca_size}_n_var_{args.n_var}_n_train_var_{args.n_train_var}_n_train_{args.n_train}_n_test_{args.n_test}_batch_size_{args.batch_size}_d_hide_{args.d_hide}_n_layers_{args.n_layers}_dropout_{args.dropout}_lr_{args.lr}_T_max_{args.T_max}_epochs_{args.epochs}_optimizer_{args.optimizer}_dim_feedforward_{args.dim_feedforward}')
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.T_max)
+    writer = SummaryWriter(log_dir=f'{args.dir}/drop_model_{args.model}_voca_size_{args.voca_size}_n_var_{args.n_var}_n_train_var_{args.n_train_var}_n_train_{args.n_train}_n_test_{args.n_test}_batch_size_{args.batch_size}_d_hide_{args.d_hide}_n_layers_{args.n_layers}_dropout_{args.dropout}_lr_{args.lr}_T_max_{args.T_max}_epochs_{args.epochs}_optimizer_{args.optimizer}_dim_feedforward_{args.dim_feedforward}_seed_{args.seed}')
 
     for epoch in tqdm(range(args.epochs)):
         args.epoch = epoch
         start = time.time()
         print('Epoch %d, lr %f' % (epoch, optimizer.param_groups[0]['lr']))
 
-        train(args, model, trainloader, optimizer, criterion, print_acc=True, writer=writer)
+        train(args, model, trainloader, optimizer, criterion, print_acc=False, writer=writer)
         if epoch % 20 == 0:
             test(args, model, testloader, criterion, writer=writer)
-        scheduler.step()
+            test1(args, model, trainloader, criterion, writer=writer)
+
+        # scheduler.step()
 
         print('Time elapsed: %f s' %(time.time() - start))
 

@@ -14,7 +14,8 @@ class MLP(nn.Module):
     def __init__(self, d_input, d_hide, d_output=30 ,n_layers=2, dropout=0.1):
         super(MLP, self).__init__()
         self.first_layer = nn.Linear(d_input, d_hide)
-        self.layers = nn.ModuleList([nn.Sequential(nn.BatchNorm1d(d_hide), nn.Linear(d_hide, d_hide)) for _ in range(n_layers)])        
+        self.layers = nn.ModuleList([nn.Linear(d_hide, d_hide) for _ in range(n_layers)])        
+        # self.layers = nn.ModuleList([nn.Sequential(nn.BatchNorm1d(d_hide), nn.Linear(d_hide, d_hide)) for _ in range(n_layers)])        
         self.last_layer = nn.Linear(d_hide, d_output)
         self.dropout = nn.Dropout(dropout)
         
@@ -29,30 +30,16 @@ class MLP(nn.Module):
         x = self.last_layer(x)
         return x
 
-class CNN_NLP(nn.Module):
-    """An 1D Convulational Neural Network for Sentence Classification."""
+class CNN(nn.Module):
+    """An 1D Convulational Neural Network for Lego task."""
     def __init__(self,
                  embed_dim=300,
                  num_filters=100,
                  num_classes=2,
                  num_layers=3,
                  dropout=0.1):
-        """
-        The constructor for CNN_NLP class.
 
-        Args:
-            vocab_size (int): Need to be specified when not pretrained word
-                embeddings are not used.
-            embed_dim (int): Dimension of word vectors. Need to be specified
-                when pretrained word embeddings are not used. Default: 300
-            filter_sizes (List[int]): List of filter sizes. Default: [3, 4, 5]
-            num_filters (List[int]): List of number of filters, has the same
-                length as `filter_sizes`. Default: [100, 100, 100]
-            n_classes (int): Number of classes. Default: 2
-            dropout (float): Dropout rate. Default: 0.5
-        """
-
-        super(CNN_NLP, self).__init__()
+        super(CNN, self).__init__()
         self.embed_dim = embed_dim
         # First layer 
         self.first_layer = nn.Conv1d(in_channels=self.embed_dim,
@@ -108,95 +95,6 @@ class CNN_NLP(nn.Module):
         logits = self.fc(self.dropout(x_reshaped))
 
         return logits
-    
-class MyLinear(nn.Module):
-
-    def __init__(
-        self, input_dim, out_dim, bias=False
-    ):
-        """
-        Args:
-            input_dim: The input dimension.
-            out_dim: The output dimension.
-            bias: True for adding bias.
-        """
-        super().__init__()
-        self.weight = nn.Parameter(
-            torch.randn( out_dim, input_dim)
-        )
-        if bias:
-            self.bias = nn.Parameter(torch.randn(out_dim))
-        else:
-            self.register_parameter("bias", None)
-
-    def forward(self, x):
-        """
-        Args:
-            x: input, tensor of size (batch_size, *, input_dim).
-        
-        Returns:
-            An affine transformation of x, tensor of size (batch_size, *, out_dim)
-        """
-        x = F.linear( x, self.weight, self.bias) / x.size(-1)**.5 # standard scaling
-        return x
-
-class MYMLP(nn.Module):
-    def __init__(
-        self, d_input, d_hide, d_output, n_layers, bias=True, norm='mf',dropout=0.1
-    ):
-        """
-        MultiLayer Perceptron
-
-        Args:
-            input_dim: The input dimension.
-            nn_dim: The number of hidden neurons per layer.
-            out_dim: The output dimension.
-            num_layers: The number of layers.
-            bias: True for adding bias.
-            norm: Scaling factor for the readout layer.
-        """
-        super().__init__()
-        input_dim = d_input
-        nn_dim =d_hide
-        out_dim = d_output
-        num_layers = n_layers
-        self.hidden = nn.Sequential(
-            nn.Sequential(
-                MyLinear(
-                    input_dim, nn_dim, bias
-                ),
-                nn.ReLU(),
-            ),
-            *[nn.Sequential(
-                    MyLinear(
-                        nn_dim, nn_dim, bias
-                    ),
-                    nn.ReLU(),
-                )
-                for _ in range(1, num_layers)
-            ],
-        )
-        self.readout = nn.Parameter(
-            torch.randn(nn_dim, out_dim)
-        )
-        if norm=='std':
-            self.norm = nn_dim**.5 # standard NTK scaling
-        elif norm=='mf':
-            self.norm = nn_dim # mean-field scaling
-
-    def forward(self, x):
-        """
-        Args:
-            x: input, tensor of size (batch_size, *, input_dim).
-        
-        Returns:
-            Output of a multilayer perceptron, tensor of size (batch_size, *, out_dim)
-        """
-        x = x.view(x.size(0), -1) # flatten
-        x = self.hidden(x)
-        x = x @ self.readout / self.norm
-        return x
-
 class ScaleupEmbedding(nn.Module):
     """
     Learnable embedding from seq_len x input_dim to (seq_len/patch_size) x out_dim
