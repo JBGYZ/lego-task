@@ -1,7 +1,4 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch import Tensor
 import numpy as np
 import os
 import math
@@ -20,7 +17,8 @@ def generate_data(tokenizer, n_var, voca_size = 8, batch_size=100):
     print('total_nb: ', total_nb)
 
     time_start = time.time()
-    for _ in range(batch_size):
+    nb_counter = 0
+    while nb_counter < batch_size:
         values = np.random.randint(0, 2, (n_var,))
         var_idx = tuple(np.random.permutation(len(all_vars)))
         vars = [all_vars[i] for i in var_idx]
@@ -54,6 +52,7 @@ def generate_data(tokenizer, n_var, voca_size = 8, batch_size=100):
             batch.append(tokenizer(sent))
             labels.append(values)
             clause_order.append(order)
+            nb_counter += 1
 
     # print(len(labels))
     # print(labels[0].shape)
@@ -65,11 +64,11 @@ def generate_data(tokenizer, n_var, voca_size = 8, batch_size=100):
     print('time cost', time_end-time_start, 's')
     return torch.stack(batch), torch.LongTensor(labels), torch.cat(clause_order)
 
-def make_lego_datasets(n_var, n_train, n_test, batch_size, voca_size):
+def make_lego_datasets(n_var, n_train, n_test, batch_size, voca_size, seed):
     # check whether the data file exists
     # if not, generate the data file
-    if os.path.exists('lego_data_%d_%d_%d_%d.pt' % (n_var, n_train, n_test, voca_size)):
-        total_dataset = torch.load('lego_data_%d_%d_%d_%d.pt' % (n_var, n_train, n_test, voca_size))
+    if os.path.exists('lego_data_%d_%d_%d_%d_seed_%d.pt' % (n_var, n_train, n_test, voca_size, seed)):
+        total_dataset = torch.load('lego_data_%d_%d_%d_%d_seed_%d.pt' % (n_var, n_train, n_test, voca_size, seed))
     else:
         tokenizer = CharTokenizer(voca_size = voca_size)
         n_total = n_train + n_test
@@ -79,8 +78,8 @@ def make_lego_datasets(n_var, n_train, n_test, batch_size, voca_size):
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size)
     # save the data file
-    if not os.path.exists('lego_data_%d_%d_%d_%d.pt' % (n_var, n_train, n_test, voca_size)):
-        torch.save(total_dataset, 'lego_data_%d_%d_%d_%d.pt' % (n_var, n_train, n_test, voca_size))
+    if not os.path.exists('lego_data_%d_%d_%d_%d_seed_%d.pt' % (n_var, n_train, n_test, voca_size, seed)):
+        torch.save(total_dataset, 'lego_data_%d_%d_%d_%d_seed_%d.pt' % (n_var, n_train, n_test, voca_size, seed))
     return trainloader, testloader
 
 class CharTokenizer:
